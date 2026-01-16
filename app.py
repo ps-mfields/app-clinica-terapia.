@@ -1,41 +1,55 @@
+# app.py
 import streamlit as st
-from st_gsheets_connection import GSheetsConnection
 import pandas as pd
+from datetime import date
+from st_gsheets_connection import GSheetsConnection
 
-# Configuração da página
-st.set_page_config(page_title="Clínica Dani & Gabi", layout="centered")
-st.title("🏥 Controle Financeiro - Dani & Gabi")
+st.set_page_config(page_title="Controle Financeiro - Clínica", layout="centered")
 
-# Conexão com a planilha (usando os Secrets que você já colou)
+st.title("💰 Controle Financeiro da Clínica")
+
+# Conexão com Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Formulário de Lançamento
-with st.form("fluxo_caixa"):
-    usuario = st.selectbox("Profissional", ["Dani", "Gabi"])
-    data = st.date_input("Data")
-    categoria = st.selectbox("Categoria", ["Sessão", "Avaliação", "Aluguel", "Material", "Outros"])
-    descricao = st.text_input("Descrição")
-    valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-    tipo = st.radio("Tipo", ["Entrada", "Saída"])
-    
-    enviar = st.form_submit_button("Registrar Lançamento")
+# Seletor de profissional
+profissional = st.selectbox(
+    "Selecione a profissional",
+    ["Dani", "Gabi"]
+)
 
-if enviar:
-    # Cria o novo dado
-    novo_lancamento = pd.DataFrame([{
-        "Data": data.strftime("%d/%m/%Y"),
-        "Categoria": categoria,
-        "Descrição": descricao,
-        "Valor": valor,
-        "Tipo": tipo
-    }])
-    
-    # Busca os dados existentes na aba da profissional
-    dados_atuais = conn.read(worksheet=usuario)
-    
-    # Junta o novo dado aos antigos
-    dados_atualizados = pd.concat([dados_atuais, novo_lancamento], ignore_index=True)
-    
-    # Salva de volta na aba correta
-    conn.update(worksheet=usuario, data=dados_atualizados)
-    st.success(f"Lançamento de {usuario} registrado com sucesso!")
+# Categorias pré-definidas (ajuste se quiser)
+CATEGORIAS = [
+    "Consulta",
+    "Procedimento",
+    "Aluguel",
+    "Material",
+    "Impostos",
+    "Outros"
+]
+
+with st.form("form_financeiro"):
+    data = st.date_input("Data", value=date.today())
+    categoria = st.selectbox("Categoria", CATEGORIAS)
+    descricao = st.text_input("Descrição")
+    valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01)
+    tipo = st.radio("Tipo", ["Entrada", "Saída"])
+
+    submitted = st.form_submit_button("Salvar")
+
+if submitted:
+    novo_registro = pd.DataFrame(
+        [{
+            "Data": data.strftime("%Y-%m-%d"),
+            "Categoria": categoria,
+            "Descrição": descricao,
+            "Valor": valor,
+            "Tipo": tipo
+        }]
+    )
+
+    conn.append(
+        worksheet=profissional,
+        df=novo_registro
+    )
+
+    st.success(f"Registro salvo com sucesso para {profissional}!")
